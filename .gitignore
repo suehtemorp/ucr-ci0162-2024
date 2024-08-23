@@ -12,21 +12,19 @@
 *.pch
 
 # Compiled Dynamic libraries
-# Excluded: Required by dynamically-linked binaries
-# *.so
-# *.dylib
-# *.dll
+*.so
+*.dylib
+*.dll
 
 # Fortran module files
 *.mod
 *.smod
 
 # Compiled Static libraries
-# Excluded: Useful in dynamic linking prebuilt libraries
-# *.lai
-# *.la
-# *.a
-# *.lib
+*.lai
+*.la
+*.a
+*.lib
 
 # Executables
 *.exe

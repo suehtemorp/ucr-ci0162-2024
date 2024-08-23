@@ -1,25 +1,16 @@
-# Metadata
-cmake_minimum_required(VERSION 3.25.0)
-project(sdl_game VERSION 0.1.0 LANGUAGES C CXX)
+# === Main game application === 
+cmake_minimum_required(VERSION 3.25)
+project(game)
 
-# Policies
-# - C++20
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# Define executable target
+add_executable(game main.cpp)
 
-# Executable
-add_executable(sdl_game "src/main.cpp")
-
-# Solve dependencies
-# - External dependencies
-add_subdirectory("./deps/")
-# - Own source code
-add_subdirectory("./src/")
+# Apply dependencies
+add_subdirectory(./deps)
 
 # Ship into game directory
 set_target_properties(
-    sdl_game 
+    game 
     PROPERTIES 
     RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/game"
 )
