@@ -1,8 +1,8 @@
-# Reusable environment variables
-set(DEPS_DIR "${PROJECT_SOURCE_DIR}/deps")
+# === Dependencies === 
+cmake_minimum_required(VERSION 3.25)
 
-# SDL2 library
-add_subdirectory("./sdl/")
-
-# GLM library
+# Add libraries
+# - SDL2
+add_subdirectory(./SDL2)
+# - GLM
 # ...
