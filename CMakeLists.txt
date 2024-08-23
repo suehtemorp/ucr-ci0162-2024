@@ -11,9 +11,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Executable
 add_executable(sdl_game "src/main.cpp")
 
-# Reusable environment variables
-set(DEPS_DIR "${PROJECT_SOURCE_DIR}/deps")
-
 # Solve dependencies
 # - External dependencies
 add_subdirectory("./deps/")
