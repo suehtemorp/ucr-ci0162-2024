@@ -5,4 +5,4 @@ cmake_minimum_required(VERSION 3.25)
 # - SDL2
 add_subdirectory(./SDL2)
 # - GLM
-# ...
+add_subdirectory(./GLM)

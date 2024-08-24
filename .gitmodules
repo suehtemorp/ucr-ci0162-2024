@@ -2,3 +2,7 @@
 	path = deps/SDL2/SDL
 	url = https://github.com/libsdl-org/SDL.git
 	branch = SDL2
+[submodule "deps/GLM/glm"]
+	path = deps/GLM/glm
+	url = https://github.com/g-truc/glm.git
+	branch = master
