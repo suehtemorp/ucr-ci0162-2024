@@ -11,6 +11,8 @@ add_subdirectory(./deps)
 # Ship into game directory
 set_target_properties(
     game 
-    PROPERTIES 
-    RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/game"
+    PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/game"
+        OUTPUT_NAME "Game"
+        SUFFIX ".exe"
 )
