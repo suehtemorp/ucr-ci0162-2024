@@ -13,6 +13,8 @@ option(SDL2_STATIC "Use SDL2 static libraries" ON)
 # - Vendored (built)
 if(SDL2_VENDORED)
     # Override internal static/shared build options on the subproject
+    # Hack based on: https://cmake.org/cmake/help/latest/policy/CMP0077.html
+    set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
     if(SDL2_STATIC)
         set(SDL_SHARED OFF)
         set(SDL_STATIC ON)
