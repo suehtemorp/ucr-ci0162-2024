@@ -1,3 +1,6 @@
+// SDL2 Hello World demo
+// Taken from user cicanci on GitHub
+// https://gist.github.com/cicanci/b54715298ab55dff2fbcd0ca3829d13b
 #include <SDL.h>
 
 // Window size
