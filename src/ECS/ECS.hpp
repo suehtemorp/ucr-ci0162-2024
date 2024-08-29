@@ -137,9 +137,12 @@ class ECS {
                             )
                         >;
 
-                        using ConsumerValidator = std::function<
+                        using ComponentValidator = std::function<
+                            bool (const std::optional<Components>&...)
+                        >;
+
+                        using ServiceValidator = std::function<
                             bool (
-                                const std::optional<Components>&...,
                                 const std::optional<Services>&...,
                                 const std::optional<ManagerService>&
                             )
@@ -147,63 +150,94 @@ class ECS {
                     
                     private:
                         /// @brief Wrapper for underlying function that consumes
-                        /// components
+                        /// components and systems
                         const ConsumerWithServices _consumerWithServices;
 
                         /// @brief Whether or not the undelying system
-                        /// can consume a given entity's components with
-                        /// the ECS services
-                        const ConsumerValidator _consumerValidator;
+                        /// could consume a given entity's components
+                        const ComponentValidator _componentValidator;
+
+                        /// @brief Whether or not the undelying system
+                        /// could consume a given set of services
+                        const ServiceValidator _serviceValidator;
 
                     public:
                         SystemWrapper() = delete;
 
                         SystemWrapper(
                             const ConsumerWithServices& consumerWithServices,
-                            const ConsumerValidator& consumerValidator
+                            const ComponentValidator& componentValidator,
+                            const ServiceValidator& serviceValidator
                         ) :
-                            _consumerValidator(consumerValidator), 
-                            _consumerWithServices(consumerWithServices) 
+                            _consumerWithServices(consumerWithServices), 
+                            _componentValidator(componentValidator), 
+                            _serviceValidator(serviceValidator)
                         {}
 
+                        /// @brief Assert that this wrapper is not invalid or
+                        /// ill-informed
                         void AssertValid() const {
-                            if (_consumerValidator == nullptr ||
-                                _consumerWithServices == nullptr) {
+                            if (_consumerWithServices == nullptr ||
+                                _componentValidator == nullptr ||
+                                _serviceValidator == nullptr
+                            ) {
                                 throw std::runtime_error("System is ill-informed");
                             }
                         }
+                
+                        /// @brief Check whether the underlying system can consume 
+                        /// components on a given entity
+                        /// @param entity Possible provided components
+                        /// @return True if it can, false otherwise
+                        bool CanConsumeComponents(const Entity& entity) const {
+                            this->AssertValid();
+
+                            return this->_componentValidator(
+                                std::get<std::optional<Components>>(entity)...
+                            );
+                        }
+
+                        /// @brief Check whether the underlying system can consume
+                        /// some optionally-provided services
+                        /// @param services Possibly provided services
+                        /// @return True if it can, false otherwise
+                        bool CanConsumeServices(
+                            const std::tuple<
+                                std::optional<ManagerService>, 
+                                std::optional<Services>...
+                            >& services
+                        ) const {
+                            this->AssertValid();
+
+                            return this->_serviceValidator(
+                                std::get<std::optional<Services>>(services)...,
+                                std::get<std::optional<ManagerService>>(services)
+                            );
+                        }
+
+                        /// @brief Forward the consumption of components in a
+                        /// given entity with given services to the underlying system
+                        /// @param system System to consume components and services
+                        /// @param entity Entity to provide components from
+                        void ConsumeEntity(
+                            Entity& entity,
+                            std::tuple<std::optional<ManagerService>, std::optional<Services>...>& services
+                        ) {
+                            if (! this->CanConsumeComponents(entity)) {
+                                std::invalid_argument("System cannot consume entity");
+                            }
+
+                            if (! this->CanConsumeServices(services)) {
+                                std::invalid_argument("System cannot consume services");
+                            }
+
+                            this->_consumerWithServices(
+                                std::get<std::optional<Components>>(entity)...,
+                                std::get<std::optional<Services>>(services)...,
+                                std::get<std::optional<ManagerService>>(services)
+                            );
+                        }
                 };
-
-                /// @brief Check whether a given system can consume components
-                /// on a given entity with the current services
-                /// @param system System that could consume components and services
-                /// @param entity Entity that could provide components to it
-                /// @return True if it can, false otherwise
-                bool CanConsumeEntity(const SystemWrapper& system, const Entity& entity) {
-                    system.AssertValid();
-
-                    return system._consumerValidator(
-                        std::get<std::optional<Components>>(entity)...,
-                        std::get<std::optional<Services>>(_services)...,
-                        std::get<std::optional<ManagerService>>(_services)
-                    );
-                }
-
-                /// @brief Refer the consumption of components in a
-                /// given entity with given services to a system
-                /// @param system System to consume components and services
-                /// @param entity Entity to provide components from
-                void ConsumeEntity(const SystemWrapper& system, Entity& entity) {
-                    if (!CanConsumeEntity(system, entity)) {
-                        std::invalid_argument("System cannot consume entity");
-                    }
-
-                    system._consumerWithServices(
-                        std::get<std::optional<Components>>(entity)...,
-                        std::get<std::optional<Services>>(_services)...,
-                        std::get<std::optional<ManagerService>>(_services)
-                    );
-                }
 
                 /// @brief Current entities in existence
                 std::map<EntityID, Entity> _entities;
@@ -395,11 +429,11 @@ class ECS {
                     void (*system) (std::tuple<SpecificComponents...>, 
                     std::tuple<SpecificServices...>)
                 ) {
-                    // Define a validator for the system
-                    typename SystemWrapper::ConsumerValidator validator = [](
-                        const std::optional<Components>&... components,
-                        const std::optional<Services>&... services,
-                        const std::optional<ManagerService>& managerService
+                    // Define validators for the system...
+                    
+                    // - On components
+                    typename SystemWrapper::ComponentValidator componentValidator = [](
+                        const std::optional<Components>&... components
                     ) {
                         // Check for applicability across the fold of specific component 
                         // types required by the system
@@ -422,6 +456,15 @@ class ECS {
                             return false;
                         }
 
+                        // If no discard ocurred, accept consumption
+                        return true;
+                    };
+
+                    // - On services
+                    typename SystemWrapper::ServiceValidator serviceValidator = [](
+                        const std::optional<Services>&... services,
+                        const std::optional<ManagerService>& managerService
+                    ) {
                         // Check for applicability across the fold of specific service types 
                         // required by the system
                         if (!(
@@ -480,7 +523,10 @@ class ECS {
 
                     // Assign and then increment the latest assignable ID
                     SystemID targetID = _nextSystemID++;
-                    _systems.emplace(targetID, SystemWrapper(consumer, validator));
+                    _systems.emplace(targetID, 
+                        SystemWrapper(
+                            consumer, componentValidator, serviceValidator
+                    ));
 
                     // Report ID of inserted entity
                     return targetID;
@@ -533,9 +579,15 @@ class ECS {
                 /// @brief Perform one iteration of the update loop
                 void Sweep() {
                     for (auto& [systemID, system] : _systems) {
-                        for (auto& [entityID, entity] : _entities) {
-                            if (CanConsumeEntity(system, entity)) {
-                                ConsumeEntity(system, entity);
+                        /// WARN: For now its a given that within a given
+                        /// sweep, no services can be uninstalled.
+                        /// This means, a service remains consumable between
+                        /// entities and systems on a given sweep
+                        if (system.CanConsumeServices(_services)) {
+                            for (auto& [entityID, entity] : _entities) {
+                                if (system.CanConsumeComponents(entity)) {
+                                    system.ConsumeEntity(entity, _services);
+                                }
                             }
                         }
                     }
