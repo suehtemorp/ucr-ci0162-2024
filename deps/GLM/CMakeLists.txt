@@ -28,11 +28,3 @@ if(GLM_VENDORED)
 else()
     find_package(glm CONFIG REQUIRED)
 endif()
-
-# Link library
-# - Link to either the compiled or header-only version
-if (GLM_HEADER_ONLY)
-    target_link_libraries(game PRIVATE glm::glm-header-only)
-else()
-    target_link_libraries(game PRIVATE glm::glm)
-endif()
