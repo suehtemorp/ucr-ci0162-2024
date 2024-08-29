@@ -1,17 +1,23 @@
 #ifndef ECS_HPP
 #define ECS_HPP
 
+// Type constraints
 #include <concepts>
 #include <type_traits>
+#include "Utils/Traits.hpp"
+
+// Storage
+#include <cstddef>
+#include <optional>
 #include <tuple>
 #include <map>
-#include <memory>
-#include <optional>
-#include <exception>
-#include <functional>
-#include <cstddef>
 
-#include "Utils/Traits.hpp"
+// Error reporting
+#include <exception>
+
+// System interfacing 
+#include <functional>
+#include <thread>
 
 /// @brief Base type for POD components in an ECS
 /// @remark Merely added for disambiguation in templates
@@ -68,6 +74,50 @@ class ECS {
 
                 /// @brief IDs for a given system
                 using SystemID = std::uint64_t;
+
+                /// @brief Service proxy for managing the given ECS  
+                class ManagerService : Service {
+                    friend class WithServices;
+
+                    private:
+                        /// @brief ECS to be defer commands to
+                        std::reference_wrapper<WithServices> _managedEcs;
+
+                    protected:
+                        /// @brief Construct a proxy for managing a given ECS
+                        /// @param managedEcs ECS to manage
+                        /// @remark This proxy's lifetime must not exceed the
+                        /// managed ECS's
+                        ManagerService(WithServices& managedEcs) :
+                        _managedEcs(managedEcs) {};
+
+                    public:
+                        /// @brief Request that the ECS stop running
+                        /// @return True if stop request was honored, 
+                        /// false otherwise
+                        bool RequestStop() {
+                            return _managedEcs.get().RequestStop();
+                        }
+                };
+
+                /// Make sure the manager service is well-defined
+                static_assert(
+                    ! ServiceType<ManagerService>, 
+                    "Manager service is ill-defined"
+                );
+
+                /// Make sure it doesn't collide with other services
+                /// (not likely, but who knows)
+                static_assert(
+                    ! is_any_from<ManagerService, Services...>::value, 
+                    "Manager service cannot be a delegate service"
+                );
+
+                WithServices() {
+                    // Install manager service 
+                    std::get<std::optional<ManagerService>>(_services) 
+                    = ManagerService(*this);
+                }
             
             protected:
                 /// @brief Wrapper around a system and its given validator
@@ -76,13 +126,19 @@ class ECS {
 
                     public:
                         using ConsumerWithServices = std::function<
-                            void (std::optional<Components>&..., 
-                            std::optional<Services>&...)
+                            void (
+                                std::optional<Components>&..., 
+                                std::optional<Services>&...,
+                                std::optional<ManagerService>&
+                            )
                         >;
 
                         using ConsumerValidator = std::function<
-                            bool (const std::optional<Components>&...,
-                            const std::optional<Services>&...)
+                            bool (
+                                const std::optional<Components>&...,
+                                const std::optional<Services>&...,
+                                const std::optional<ManagerService>&
+                            )
                         >;
                     
                     private:
@@ -124,7 +180,8 @@ class ECS {
 
                     return system._consumerValidator(
                         std::get<std::optional<Components>>(entity)...,
-                        std::get<std::optional<Services>>(_services)...
+                        std::get<std::optional<Services>>(_services)...,
+                        std::get<std::optional<ManagerService>>(_services)
                     );
                 }
 
@@ -133,13 +190,14 @@ class ECS {
                 /// @param system System to consume components and services
                 /// @param entity Entity to provide components from
                 void ConsumeEntity(const SystemWrapper& system, Entity& entity) {
-                    if (CanConsumeEntity(system, entity)) {
+                    if (!CanConsumeEntity(system, entity)) {
                         std::invalid_argument("System cannot consume entity");
                     }
 
                     system._consumerWithServices(
                         std::get<std::optional<Components>>(entity)...,
-                        std::get<std::optional<Services>>(_services)...
+                        std::get<std::optional<Services>>(_services)...,
+                        std::get<std::optional<ManagerService>>(_services)
                     );
                 }
 
@@ -149,8 +207,11 @@ class ECS {
                 /// @brief Current systems in existence
                 std::map<SystemID, SystemWrapper> _systems;
 
-                /// @brief Services to be used
-                std::tuple<std::optional<Services>...> _services;
+                /// @brief Services available for use in systems
+                std::tuple<std::optional<ManagerService>, std::optional<Services>...> _services;
+
+                /// @brief Thread running the system loops 
+                std::jthread _mainLoop;
 
                 /// @brief Next assignable ID for a new entity
                 EntityID _nextEntityID = 0;
@@ -295,20 +356,37 @@ class ECS {
                 /// @param system System to process matching entities
                 /// @return A valid ID for further transactions with the system
                 template<typename... SpecificComponents, typename... SpecificServices>
-                /// Components map 1-to-1 to those in ECS
+                /// Components map 1-to-1 to those in ECS, and must also be references
                 requires Distinct<
                     std::remove_cvref_t<SpecificComponents>...
-                > && (AnyFrom<
-                    std::remove_cvref_t<SpecificComponents>,
-                    Components...
-                > && ...) &&
-                /// Services must as well
-                Distinct<
+                > && (
+                    AnyFrom<
+                        std::remove_cvref_t<SpecificComponents>,
+                        Components...
+                    > 
+                    && ...
+                ) && (
+                    std::is_reference_v<SpecificComponents>
+                    && ...
+                )
+                /// Services must do so as well...
+                && Distinct<
                     std::remove_cvref_t<SpecificServices>...
-                > && (AnyFrom<
-                    std::remove_cvref_t<SpecificServices>,
-                    Services...
-                > && ...)
+                > && ((
+                        AnyFrom<
+                            std::remove_cvref_t<SpecificServices>,
+                            Services...
+                        >
+                        // But also consider the manager service
+                        || std::is_same_v<
+                            std::remove_cvref_t<SpecificServices>, 
+                            ManagerService
+                        >
+                    ) && ...) 
+                && (
+                    std::is_reference_v<SpecificServices>
+                    && ...
+                )
                 SystemID AddSystem(
                     void (*system) (std::tuple<SpecificComponents...>, 
                     std::tuple<SpecificServices...>)
@@ -316,7 +394,8 @@ class ECS {
                     // Define a validator for the system
                     typename SystemWrapper::ConsumerValidator validator = [](
                         const std::optional<Components>&... components,
-                        const std::optional<Services>&... services
+                        const std::optional<Services>&... services,
+                        const std::optional<ManagerService>& managerService
                     ) {
                         // Check for applicability across the fold of specific component 
                         // types required by the system
@@ -354,7 +433,7 @@ class ECS {
                                             >
                                         >
                                     >
-                                >(std::tie(services...)).has_value();
+                                >(std::tie(managerService, services...)).has_value();
                             } ()
                             && ...)
                         ) {
@@ -366,9 +445,11 @@ class ECS {
                     };
 
                     // Define a consumer-wrapper for it as well
-                    typename SystemWrapper::ConsumerWithServices consumer = [&system](
+                    typename SystemWrapper::ConsumerWithServices consumer = 
+                    [=](
                         std::optional<Components>&... components,
-                        std::optional<Services>&... services
+                        std::optional<Services>&... services,
+                        std::optional<ManagerService>& managerService
                     ) {
                         // Forward the parameters to the system call
                         system(
@@ -388,7 +469,7 @@ class ECS {
                                             std::remove_cvref_t<SpecificServices>
                                         >
                                     >
-                                >(std::tie(services...)).value()...
+                                >(std::tie(managerService, services...)).value()...
                             )
                         );
                     };
@@ -420,7 +501,7 @@ class ECS {
 
                     // Sanity check that the service is uninstalled
                     if (slot) {
-                        throw std::exception("Service already installed");
+                        throw std::logic_error("Service already installed");
                     }
 
                     // Install the service
@@ -443,6 +524,51 @@ class ECS {
 
                     // Uninstall the service
                     slot.reset();
+                }
+        
+                /// @brief Perform one iteration of the update loop
+                void Sweep() {
+                    for (auto& [systemID, system] : _systems) {
+                        for (auto& [entityID, entity] : _entities) {
+                            if (CanConsumeEntity(system, entity)) {
+                                ConsumeEntity(system, entity);
+                            }
+                        }
+                    }
+
+                    return;
+                }
+
+                /// @brief Start running the ECS by dispatching a repeating
+                /// cicle of the update loop
+                void Start() {
+                    _mainLoop = std::jthread(
+                        [](std::stop_token stoken, WithServices& ecs) {
+                            while (!stoken.stop_requested()) {
+                                ecs.Sweep();
+                            }
+                        },
+                        std::ref(*this)
+                    );
+
+                    return;
+                }
+
+                /// @brief Wait until the ECS has stopped running
+                void AwaitStop() {
+                    if (!_mainLoop.joinable()) {
+                        throw std::logic_error
+                        ("ECS is not running in the current thread");
+                    }
+
+                    _mainLoop.join();
+                }
+
+                /// @brief Request that the ECS stop running
+                /// @return True if stop request was honored, 
+                /// false otherwise
+                bool RequestStop() {
+                    return _mainLoop.request_stop();
                 }
         };
 };
