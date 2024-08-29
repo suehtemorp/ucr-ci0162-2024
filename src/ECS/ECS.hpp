@@ -43,12 +43,16 @@ concept ComponentType =
 /// @brief Restraint required for service dependencies in an ECS
 template <class T>
 concept ServiceType =
-    // Enforce construction / destruction restraints
-    std::is_copy_constructible_v<T> &&
-    std::is_move_constructible_v<T> &&
+    // Enforce construction assignment restraints
+    ((
+        std::is_copy_constructible_v<T> &&
+        std::is_copy_assignable_v<T>
+        ) || (
+        std::is_move_constructible_v<T> &&
+        std::is_move_assignable_v<T>
+    )) &&
+    // Enforce destruction contraints
     std::is_destructible_v<T> &&
-    // Enforce assignment constraints
-    std::is_move_assignable_v<T> &&
     // Require inheritance from base type (for disambiguation inside templates)
     std::derived_from<T, Service> &&
     // Forbid intersection with components
@@ -505,7 +509,7 @@ class ECS {
                     }
 
                     // Install the service
-                    slot = service;
+                    slot = std::move(service);
                 }
 
                 /// @brief Uninstall a given service from the ECS
