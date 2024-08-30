@@ -79,6 +79,9 @@ class ECS {
                 /// @brief IDs for a given system
                 using SystemID = std::uint64_t;
 
+                /// @brief IDs for a given service action
+                using ServiceActionID = std::uint64_t;
+
                 /// @brief Service proxy for managing the given ECS  
                 class ManagerService : Service {
                     friend class WithServices;
@@ -124,12 +127,14 @@ class ECS {
                 }
             
             protected:
+                /// TODO: Refactor Wrappers onto common class?
+
                 /// @brief Wrapper around a system and its given validator
                 class SystemWrapper {
                     friend WithServices;
 
                     public:
-                        using ConsumerWithServices = std::function<
+                        using Consumer = std::function<
                             void (
                                 std::optional<Components>&..., 
                                 std::optional<Services>&...,
@@ -151,7 +156,7 @@ class ECS {
                     private:
                         /// @brief Wrapper for underlying function that consumes
                         /// components and systems
-                        const ConsumerWithServices _consumerWithServices;
+                        const Consumer _consumer;
 
                         /// @brief Whether or not the undelying system
                         /// could consume a given entity's components
@@ -165,11 +170,11 @@ class ECS {
                         SystemWrapper() = delete;
 
                         SystemWrapper(
-                            const ConsumerWithServices& consumerWithServices,
+                            const Consumer& consumerWithServices,
                             const ComponentValidator& componentValidator,
                             const ServiceValidator& serviceValidator
                         ) :
-                            _consumerWithServices(consumerWithServices), 
+                            _consumer(consumerWithServices), 
                             _componentValidator(componentValidator), 
                             _serviceValidator(serviceValidator)
                         {}
@@ -177,11 +182,12 @@ class ECS {
                         /// @brief Assert that this wrapper is not invalid or
                         /// ill-informed
                         void AssertValid() const {
-                            if (_consumerWithServices == nullptr ||
+                            if (_consumer == nullptr ||
                                 _componentValidator == nullptr ||
                                 _serviceValidator == nullptr
                             ) {
-                                throw std::runtime_error("System is ill-informed");
+                                throw std::runtime_error
+                                ("System is ill-informed");
                             }
                         }
                 
@@ -217,7 +223,7 @@ class ECS {
 
                         /// @brief Forward the consumption of components in a
                         /// given entity with given services to the underlying system
-                        /// @param system System to consume components and services
+                        /// @param services Services that may be consumed 
                         /// @param entity Entity to provide components from
                         void ConsumeEntity(
                             Entity& entity,
@@ -231,8 +237,97 @@ class ECS {
                                 std::invalid_argument("System cannot consume services");
                             }
 
-                            this->_consumerWithServices(
+                            this->_consumer(
                                 std::get<std::optional<Components>>(entity)...,
+                                std::get<std::optional<Services>>(services)...,
+                                std::get<std::optional<ManagerService>>(services)
+                            );
+                        }
+                };
+
+                /// @brief Wrapper around an invokable action taken on some services
+                class ServiceActionWrapper {
+                    friend WithServices;
+
+                    public:
+                        using Consumer = std::function<
+                            void (
+                                std::optional<Services>&...,
+                                std::optional<ManagerService>&
+                            )
+                        >;
+
+                        using Validator = std::function<
+                            bool (
+                                const std::optional<Services>&...,
+                                const std::optional<ManagerService>&
+                            )
+                        >;
+                    
+                    private:
+                        /// @brief Wrapper for underlying function that 
+                        /// consumes services
+                        const Consumer _consumer;
+
+                        /// @brief Whether or not the undelying service
+                        /// action could consume a given set of services
+                        const Validator _validator;
+
+                    public:
+                        ServiceActionWrapper() = delete;
+
+                        ServiceActionWrapper(
+                            const Consumer& consumer,
+                            const Validator& validator
+                        ) :
+                            _consumer(consumer), 
+                            _validator(validator)
+                        {}
+
+                        /// @brief Assert that this wrapper is not invalid or
+                        /// ill-informed
+                        void AssertValid() const {
+                            if (_consumer == nullptr ||
+                                _validator == nullptr
+                            ) {
+                                throw std::runtime_error
+                                ("Service action is ill-informed");
+                            }
+                        }
+
+                        /// @brief Check whether the underlying system can consume
+                        /// some optionally-provided services
+                        /// @param services Possibly provided services
+                        /// @return True if it can, false otherwise
+                        bool CanConsumeServices(
+                            const std::tuple<
+                                std::optional<ManagerService>, 
+                                std::optional<Services>...
+                            >& services
+                        ) const {
+                            this->AssertValid();
+
+                            return this->_validator(
+                                std::get<std::optional<Services>>(services)...,
+                                std::get<std::optional<ManagerService>>(services)
+                            );
+                        }
+
+                        /// @brief Forward the consumption of the given services to
+                        /// the underlying system
+                        /// @param services Services that may be consumed
+                        void ConsumeServices(
+                            std::tuple<
+                                std::optional<ManagerService>, 
+                                std::optional<Services>...
+                            >& services
+                        ) {
+                            if (! this->CanConsumeServices(services)) {
+                                std::invalid_argument
+                                ("Service action cannot consume services");
+                            }
+
+                            this->_consumer(
                                 std::get<std::optional<Services>>(services)...,
                                 std::get<std::optional<ManagerService>>(services)
                             );
@@ -245,6 +340,9 @@ class ECS {
                 /// @brief Current systems in existence
                 std::map<SystemID, SystemWrapper> _systems;
 
+                /// @brief Current service actions in existence
+                std::map<ServiceActionID, ServiceActionWrapper> _serviceActions;
+
                 /// @brief Services available for use in systems
                 std::tuple<std::optional<ManagerService>, std::optional<Services>...> _services;
 
@@ -256,6 +354,9 @@ class ECS {
 
                 /// @brief Next assignable ID for a new system
                 SystemID _nextSystemID = 0;
+
+                /// @brief Next assignable ID for a new service action
+                ServiceActionID _nextServiceActionID = 0;
 
                 /// @brief Access a given service in the ECS
                 /// @tparam SpecificService Service type to access 
@@ -305,6 +406,23 @@ class ECS {
                     // Assert that it is found
                     if (where == _systems.end()) {
                         throw std::invalid_argument("Invalid system ID");
+                    }
+
+                    return where;
+                }
+
+                /// @brief Pull a service action reference from storage
+                /// @param targetID Valid ID obtained via AddServiceAction()
+                /// @return Iterator to service action in storage
+                std::map<ServiceActionID, ServiceActionWrapper>::iterator 
+                SelectServiceAction(ServiceActionWrapper targetID) {
+                    // Lookup the service action
+                    typename std::map<ServiceActionID, ServiceActionWrapper>::iterator 
+                    where = _serviceActions.find(targetID);
+
+                    // Assert that it is found
+                    if (where == _serviceActions.end()) {
+                        throw std::invalid_argument("Invalid service action ID");
                     }
 
                     return where;
@@ -387,6 +505,8 @@ class ECS {
                     // Uninstall the component
                     slot.reset();
                 }
+
+                /// TODO: Lots of boilerplate. Refactor into generic call?
 
                 /// @brief Add a given system to the ECS
                 /// @tparam ...SpecificComponents Components qualified-types to consider in system
@@ -492,7 +612,7 @@ class ECS {
                     };
 
                     // Define a consumer-wrapper for it as well
-                    typename SystemWrapper::ConsumerWithServices consumer = 
+                    typename SystemWrapper::Consumer consumer = 
                     [=](
                         std::optional<Components>&... components,
                         std::optional<Services>&... services,
@@ -539,6 +659,98 @@ class ECS {
                     _systems.erase(SelectSystem(targetID));
                 }
 
+                /// @brief Add a given service action to the ECS
+                /// @tparam ...SpecificServices Services qualified-types to use in the
+                /// service action
+                /// @param serviceAction Service action to process matching services
+                /// @return A valid ID for further transactions with the system
+                template<typename... SpecificServices>
+                /// Services map 1-to-1 to those in ECS, and must also be references
+                requires Distinct<
+                    std::remove_cvref_t<SpecificServices>...
+                > && ((
+                        AnyFrom<
+                            std::remove_cvref_t<SpecificServices>,
+                            Services...
+                        >
+                        // But also consider the manager service
+                        || std::is_same_v<
+                            std::remove_cvref_t<SpecificServices>, 
+                            ManagerService
+                        >
+                    ) && ...) 
+                && (
+                    std::is_reference_v<SpecificServices>
+                    && ...
+                )
+                ServiceActionID AddServiceAction(
+                    void (*serviceAction) (SpecificServices...)
+                ) {
+                    // Define a validator for the service action based on
+                    // its services
+                    typename ServiceActionWrapper::Validator validator = [](
+                        const std::optional<Services>&... services,
+                        const std::optional<ManagerService>& managerService
+                    ) {
+                        // Check for applicability across the fold of specific service types 
+                        // required by the service action
+                        if (!(
+                            [&]
+                            {
+                                // On each one, if the corresponding passed service is
+                                // available, confirm applicability
+                                return std::get<
+                                    std::add_lvalue_reference_t<
+                                        std::add_const_t<
+                                            std::optional<
+                                                std::remove_cvref_t<SpecificServices>
+                                            >
+                                        >
+                                    >
+                                >(std::tie(managerService, services...)).has_value();
+                            } ()
+                            && ...)
+                        ) {
+                            return false;
+                        }
+
+                        // If no discard ocurred, accept consumption
+                        return true;
+                    };
+
+                    // Define a consumer-wrapper for it as well
+                    typename ServiceActionWrapper::Consumer consumer = 
+                    [=](
+                        std::optional<Services>&... services,
+                        std::optional<ManagerService>& managerService
+                    ) {
+                        // Forward the parameters to the system call
+                        serviceAction(
+                            std::get<
+                                std::add_lvalue_reference_t<
+                                    std::optional<
+                                        std::remove_cvref_t<SpecificServices>
+                                    >
+                                >
+                            >(std::tie(managerService, services...)).value()...
+                        );
+                    };
+
+                    // Assign and then increment the latest assignable ID
+                    ServiceActionID targetID = _nextServiceActionID++;
+                    _serviceActions.emplace(targetID, ServiceActionWrapper(consumer, validator));
+
+                    // Report ID of inserted service action
+                    return targetID;
+                }
+
+                /// @brief Remove an existing service action from the ECS
+                /// @param targetID Valid ID obtained via AddServiceAction()
+                void RemoveServiceAction(const ServiceActionID& targetID) {
+                    // Remove service action from storage
+                    _serviceActions.erase(SelectServiceAction(targetID));
+                }
+
                 /// @brief Install a given service to the ECS
                 /// @tparam SpecificService Service type to install
                 /// @param service Unowned service to possess
@@ -575,14 +787,22 @@ class ECS {
                     // Uninstall the service
                     slot.reset();
                 }
-        
+
                 /// @brief Perform one iteration of the update loop
                 void Sweep() {
+                    /// Sweep over service actions...
+                    for (auto& [serviceActionID, serviceAction] : _serviceActions) {
+                        if (serviceAction.CanConsumeServices(_services)) {
+                            serviceAction.ConsumeServices(_services);
+                        }
+                    }
+
+                    /// ... And ECS matchings independently
                     for (auto& [systemID, system] : _systems) {
                         /// WARN: For now its a given that within a given
-                        /// sweep, no services can be uninstalled.
+                        /// ECS sweep, no services can be uninstalled.
                         /// This means, a service remains consumable between
-                        /// entities and systems on a given sweep
+                        /// entities on a given system sweep
                         if (system.CanConsumeServices(_services)) {
                             for (auto& [entityID, entity] : _entities) {
                                 if (system.CanConsumeComponents(entity)) {

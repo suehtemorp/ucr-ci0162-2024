@@ -74,14 +74,10 @@ using CountingECS = ECS<RankComponent>::WithServices<CounterService, RandIntServ
 
 void CounterSystem(
     std::tuple<const RankComponent&> components, 
-    std::tuple<CounterService&, CountingECS::ManagerService&> services
+    std::tuple<const CounterService&> services
 ) {
     std::cout << "> Visiting component with rank " << std::get<0>(components).rank;
-    std::cout << " at count " << std::get<0>(services).counter++ << std::endl;;
-
-    if (std::get<0>(services).counter == 2048) {
-        std::get<1>(services).RequestStop();
-    }
+    std::cout << " at count " << std::get<0>(services).counter << std::endl;;
 
     return;
 }
@@ -93,10 +89,31 @@ void RankShuffleSystem(
     int oldRank = std::get<0>(components).rank; 
     std::get<0>(components).rank = std::get<0>(services).GetRandInt();
 
-    std::cout << "> Promoted! From " << oldRank;
-    std::cout << " to " << std::get<0>(components).rank << std::endl;
+    std::cout 
+        << "> Promoted! From " << oldRank 
+        << " to " << std::get<0>(components).rank << std::endl;
 
     return;
+}
+
+void MaxCountEnforceAction(
+    const CounterService& counterService, 
+    CountingECS::ManagerService& managerService
+) {
+    if (counterService.counter > 2048) {
+        std::cout 
+            << "> Counter limit reached! At " 
+            << counterService.counter << std::endl
+            << "> Requesting ECS to stop..." << std::endl;
+
+        managerService.RequestStop();
+    }
+}
+
+void CountIncrementAction(CounterService& counterService) {
+    std::cout 
+        << "> Incrementing cicle count! Now at " 
+        << ++counterService.counter << std::endl;
 }
 
 void TestECS() {
@@ -115,9 +132,13 @@ void TestECS() {
     ecs.AddSystem(CounterSystem);
     ecs.AddSystem(RankShuffleSystem);
 
-    std::cout << "Adding service..." << std::endl ;
+    std::cout << "Adding services..." << std::endl ;
     ecs.InstallService(CounterService{.counter = 0});
     ecs.InstallService(RandIntService(10, 30));
+
+    std::cout << "Adding service actions..." << std::endl;
+    ecs.AddServiceAction(CountIncrementAction);
+    ecs.AddServiceAction(MaxCountEnforceAction);
 
     std::cout << "Starting ECS..." << std::endl ;
     ecs.Start();
