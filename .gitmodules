@@ -6,3 +6,15 @@
 	path = deps/GLM/glm
 	url = https://github.com/g-truc/glm.git
 	branch = master
+[submodule "deps/SDL2_ttf/SDL_ttf"]
+	path = deps/SDL2_ttf/SDL_ttf
+	url = https://github.com/libsdl-org/SDL_ttf.git
+	branch = SDL2
+[submodule "deps/SDL2_ttf/freetype"]
+	path = deps/FreeType/freetype/
+	url = https://github.com/freetype/freetype.git
+	branch = master
+[submodule "deps/FreeType/freetype"]
+	path = deps/FreeType/freetype
+	url = https://github.com/freetype/freetype.git
+	branch = master
