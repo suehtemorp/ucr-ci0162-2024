@@ -18,3 +18,7 @@
 	path = deps/FreeType/freetype
 	url = https://github.com/freetype/freetype.git
 	branch = master
+[submodule "deps/SDL2_image/SDL_image"]
+	path = deps/SDL2_image/SDL_image
+	url = https://github.com/libsdl-org/SDL_image.git
+	branch = SDL2
