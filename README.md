@@ -7,6 +7,7 @@
     - [Entorno anfitrión](#entorno-anfitrión)
     - [Herramientas de construcción](#herramientas-de-construcción)
   - [🛠️ Construcción](#️-construcción)
+    - [Recolección de fuentes](#recolección-de-fuentes)
     - [Configuración](#configuración)
     - [Compilación y enlace](#compilación-y-enlace)
   - [⏯️ Ejecución](#️-ejecución)
@@ -47,14 +48,30 @@ Este proyecto utiliza el sistema de construcción de `CMake`. Es posible que ver
 
 Las siguientes son algunas de las herramientas utilizadas para construir el ejecutable del proyecto:
 - **Sistema de construcción**: `CMake` versión `3.25.1`
-- **Compiladores**: `GCC/G++` versión `12.2.0`
+- **Compiladores**: `GCC/G++` versión `12.2.0`, `nasm` versión `2.16.01`
 - **Generador usado por CMake**: `GNU Make` versión `4.3`, `Ninja` versión `1.11.1`
 
-Se omiten las herramientas necesarias para construir las bibliotecas incluidas como dependencias. 
+Adicionalmente, este proyecto utiliza submódulos de `git` (versión `2.39.2`) para recolectar fuentes mediante versión de control. 
+
+Se omiten las herramientas necesarias para construir las bibliotecas incluidas como dependencias.
 
 ## 🛠️ Construcción
 
 Las siguientes instrucciones detallan cómo construir el proyecto desde la plataforma anfitrión para ella misma. Es posible construir para plataformas distintas a la anfitrión, pero no se garantiza.
+
+### Recolección de fuentes
+
+Asegúrese de clonar el repositorio de donde obtuvo este fuente y sus submódulos recursivamente. Se recomiendan los siguientes comandos:
+
+1. Si recién ha clonado el repositorio. La `<direccion_de_clonado>` es cualquier dirección que acepte git clone para clonar el repositorio remoto asociado (e.g: una URL):
+```
+git clone --recursive <direccion_de_clonado>
+```
+
+2. Si ya lo clonó, pero desea clonar sus submódulos recursivamente, navegue al directorio raíz del repositorio y ejecute:
+```
+git submodule update --init --recursive
+```
 
 ### Configuración
 
