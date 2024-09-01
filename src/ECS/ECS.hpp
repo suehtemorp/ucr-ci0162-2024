@@ -1,5 +1,7 @@
-#ifndef ECS_HPP
-#define ECS_HPP
+#pragma once
+
+// ECS system & component
+#include "ECS/ECS_Core.hpp"
 
 // Type constraints
 #include <concepts>
@@ -18,45 +20,6 @@
 // System interfacing 
 #include <functional>
 #include <thread>
-
-/// @brief Base type for POD components in an ECS
-/// @remark Merely added for disambiguation in templates
-/// with respect to other types
-class Component {};
-
-/// @brief Base type for service dependencies in an ECS
-/// @remark Merely added for disambiguation in templates
-/// with respect to other types
-class Service {};
-
-/// @brief Restraint required for PODs component in an ECS
-template <class T>
-concept ComponentType =
-    // Enforce POD restraints
-    std::is_standard_layout_v<T> &&
-    std::is_trivial_v<T> &&
-    // Require inheritance from base type (for disambiguation inside templates)
-    std::derived_from<T, Component> &&
-    // Forbid intersection with services
-    !std::derived_from<T, Service>;
-
-/// @brief Restraint required for service dependencies in an ECS
-template <class T>
-concept ServiceType =
-    // Enforce construction assignment restraints
-    ((
-        std::is_copy_constructible_v<T> &&
-        std::is_copy_assignable_v<T>
-        ) || (
-        std::is_move_constructible_v<T> &&
-        std::is_move_assignable_v<T>
-    )) &&
-    // Enforce destruction contraints
-    std::is_destructible_v<T> &&
-    // Require inheritance from base type (for disambiguation inside templates)
-    std::derived_from<T, Service> &&
-    // Forbid intersection with components
-    !std::derived_from<T, Component>;
 
 /// @brief Possible entity component systems for given components
 /// @tparam ...Components Components to pass onto systems
@@ -346,8 +309,12 @@ class ECS {
                 /// @brief Services available for use in systems
                 std::tuple<std::optional<ManagerService>, std::optional<Services>...> _services;
 
-                /// @brief Thread running the system loops 
+                /// @brief Dispatched thread running the system loops 
                 std::jthread _mainLoop;
+
+                /// @brief Whether or not the current thread should keep
+                /// running the system loops
+                bool _localContinue = false;
 
                 /// @brief Next assignable ID for a new entity
                 EntityID _nextEntityID = 0;
@@ -815,9 +782,23 @@ class ECS {
                     return;
                 }
 
-                /// @brief Start running the ECS by dispatching a repeating
-                /// cicle of the update loop
-                void Start() {
+                /// @brief Start running the ECS main update loop in the
+                /// current thread
+                void Run() {
+                    if (_mainLoop.joinable()) {
+                        throw std::logic_error
+                        ("ECS is already running in the dispatched thread");
+                    }
+
+                    _localContinue = true;
+                    while (_localContinue) {
+                        this->Sweep();
+                    }
+                }
+
+                /// @brief Start running the ECS by dispatching a new thread
+                /// running the main update loop
+                void Dispatch() {
                     _mainLoop = std::jthread(
                         [](std::stop_token stoken, WithServices& ecs) {
                             while (!stoken.stop_requested()) {
@@ -830,23 +811,28 @@ class ECS {
                     return;
                 }
 
-                /// @brief Wait until the ECS has stopped running
+                /// @brief Wait until the ECS has stopped running on dispatched
+                /// thread (via Dispatch)
                 void AwaitStop() {
                     if (!_mainLoop.joinable()) {
                         throw std::logic_error
-                        ("ECS is not running in the current thread");
+                        ("ECS is not running in the dispatched thread");
                     }
 
                     _mainLoop.join();
                 }
 
-                /// @brief Request that the ECS stop running
+                /// @brief Request that the ECS stop running (either on current
+                /// thread or on dispatched thread via Dispatch)
                 /// @return True if stop request was honored, 
                 /// false otherwise
                 bool RequestStop() {
-                    return _mainLoop.request_stop();
+                    if (_mainLoop.joinable()) {
+                        return _mainLoop.request_stop();
+                    }
+
+                    _localContinue = false;
+                    return true;
                 }
         };
 };
-
-#endif
