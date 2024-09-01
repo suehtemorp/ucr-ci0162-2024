@@ -4,17 +4,17 @@
 cmake_minimum_required(VERSION 3.25)
 
 # Opt to switch between a system glm library and a vendored glm libraries
-option(GLM_VENDORED "Use GLM vendored libraries" ON)
+option(GLM_LOCAL "Use the locally vendored GLM library" ON)
 
 # Opt to switch between the header-only or compiled version of the libraries
-option(GLM_HEADER_ONLY "Use GLM header-only version" OFF)
+option(GLM_HEADER_ONLY "Use the header-only version of the GLM library" OFF)
 
 # Opt to build the libraries as shared or static
-option(GLM_SHARED "If building the GLM vendored libraries, build them as dynamic" OFF)
+option(GLM_SHARED "Link the locally vendored GLM library dynamically" OFF)
 
 # Find GLM library
 # - Vendored (built)
-if(GLM_VENDORED)
+if(GLM_LOCAL)
     # Override internal BUILD_SHARED_LIBS option on the subproject
     # Hack based on: https://cmake.org/cmake/help/latest/policy/CMP0077.html
     set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
@@ -27,12 +27,4 @@ if(GLM_VENDORED)
 # - System-wide
 else()
     find_package(glm CONFIG REQUIRED)
-endif()
-
-# Link library
-# - Link to either the compiled or header-only version
-if (GLM_HEADER_ONLY)
-    target_link_libraries(game PRIVATE glm::glm-header-only)
-else()
-    target_link_libraries(game PRIVATE glm::glm)
 endif()

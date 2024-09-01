@@ -4,14 +4,14 @@
 cmake_minimum_required(VERSION 3.25)
 
 # Opt to switch between a system sdl library and a vendored sdl library
-option(SDL2_VENDORED "Use SDL2 vendored libraries" ON)
+option(SDL2_LOCAL "Use the locally vendored SDL2 library" ON)
 
 # Opt to switch between the static or dynamic version of the library
-option(SDL2_STATIC "Use SDL2 static libraries" ON)
+option(SDL2_STATIC "Link the locally vendored SDL2 library statically" ON)
 
 # Find SDL2 library
 # - Vendored (built)
-if(SDL2_VENDORED)
+if(SDL2_LOCAL)
     # Override internal static/shared build options on the subproject
     # Hack based on: https://cmake.org/cmake/help/latest/policy/CMP0077.html
     set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
@@ -35,23 +35,4 @@ else()
 
     # 2. SDL2 package, optional SDL2main component
     find_package(SDL2 REQUIRED CONFIG COMPONENTS SDL2main)
-endif()
-
-# Link libraries
-# - Link the SDL2main component if it is required and found
-# * SDL2::SDL2main may or may not be available. 
-# * It is e.g. required by Windows GUI applications
-if(TARGET SDL2::SDL2main)
-    # It has an implicit dependency on SDL2 functions
-    # It MUST be added before SDL2::SDL2 (or SDL2::SDL2-static)
-    target_link_libraries(game PRIVATE SDL2::SDL2main)
-endif()
-
-# - Link to the actual SDL2 library
-if(SDL2_STATIC)
-    # Static library
-    target_link_libraries(game PRIVATE SDL2::SDL2-static)
-else()
-    # Shared library
-    target_link_libraries(game PRIVATE SDL2::SDL2)
 endif()
