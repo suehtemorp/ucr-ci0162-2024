@@ -162,6 +162,42 @@ De incluir archivos de biblioteca, éstos deben ubicarse en la misma carpeta que
 
 Adicionalmente, el ejecutable depende de archivos multimedias ubicados bajo la misma carpeta `game/`. Éstos deben ser accesibles y mantenerse en la misma ruta relativa a esta carpeta, al igual que el ejecutable.
 
+La invocación del juego se debe de realizar mediante una terminal, ubicada con la carpeta del juego como directorio de trabajo, ejecutando el siguiente comando:
+```
+./Game.exe <archivo_configuracion>
+```
+
+Donde `<archivo_configuracion>` corresponde a la dirección relativa del archivo de texto de configuración utilizado para esta entrega, que tiene el siguiente formato en encodificación ASCII:
+```
+window <wW> <wh> <wr> <wg> <wb><LF>
+font <fp> <r> <g> <b> <s><LF>
+[entity <l> <ep> <ew> <eh> <px> <py> <vx> <vy> <a><LF>]...
+```
+
+La terminología es la siguiente:
+
+|Símbolo|Significado|Formato|
+|---|---|---|
+|`ww`|Anchura de la ventana|Entero positivo en notación base 10|
+|`wh`|Altura de la ventana|Entero positivo en notación base 10|
+|`wr`|Tonalidad rojo del fondo de la ventana|Entero positivo en notación base 10 entre 0 y 255|
+|`wg`|Tonalidad verde del fondo de la ventana|Entero positivo en notación base 10 entre 0 y 255|
+|`wb`|Tonalidad azul del fondo de la ventana|Entero positivo en notación base 10 entre 0 y 255|
+|`fp`|Archivo de fuente a utilizar|Dirección sin espacios al archivo de extensión `.ttf` correspondiente|
+|`fr`|Tonalidad rojo del fondo del texto|Entero positivo en notación base 10 entre 0 y 255|
+|`fg`|Tonalidad verde del fondo del texto|Entero positivo en notación base 10 entre 0 y 255|
+|`fb`|Tonalidad azul del fondo del texto|Entero positivo en notación base 10 entre 0 y 255|
+|`s`|Tamaño de la fuente de texto a usar|Entero positivo en notación base 10|
+|`l`|Palabra para identificar a la entidad correspondiente|Texto ASCII legible sin espacios|
+|`ep`|Archivo de imagen para identificar la entidad|Dirección sin espacios al archivo de imagen correspondiente|
+|`ew`|Anchura de la entidad|Entero positivo en notación base 10|
+|`eh`|Altura de la entidad|Entero positivo en notación base 10|
+|`px`|Posición horizontal inicial de la entidad en la ventana|Entero positivo en notación base 10|
+|`py`|Posición vertical inicial de la entidad en la ventana|Entero positivo en notación base 10|
+|`vx`|Velocidad horizontal de la entidad en la ventana|Entero positivo en notación base 10|
+|`vy`|Velocidad vertical de la entidad en la ventana|Entero positivo en notación base 10|
+|`a`|Grados de orientación de la entidad|Decimal de doble precisión|
+
 ### Distribución
 
 El ejecutable puede distribuirse enviando una copia de la carpeta `/game` a plataformas compatibles, acompañándole en ella los archivos multimedia, implementaciones de bibliotecas y demás archivos misceláneos requeridos.
