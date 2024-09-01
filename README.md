@@ -109,8 +109,8 @@ Por ejemplo, para configurar la construcción del ejecutable del proyecto tal qu
 Se podría utilizar el siguiente comando invocado en la terminal:
 ```
 cmake \
-    -DSDL2_VENDORED:BOOL=TRUE \
-    -DGLM_VENDORED:BOOL=TRUE \
+    -DSDL2_LOCAL:BOOL=TRUE \
+    -DGLM_LOCAL:BOOL=TRUE \
     -DSDL2_STATIC:BOOL=TRUE \
     -DGLM_SHARED:BOOL=FALSE \
     -DGLM_HEADER_ONLY:BOOL=FALSE \
