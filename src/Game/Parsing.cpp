@@ -1,6 +1,3 @@
-// SDL2 utilities
-#include <SDL.h>
-
 // Easy I/O
 #include <iostream>
 #include <fstream>
@@ -9,108 +6,12 @@
 // Filesystem navigation
 #include <filesystem>
 
-// Components
-#include "Components/Drawing.hpp"
-#include "Components/Physics.hpp"
+// Core game definitions
+#include "Game/Core.hpp"
 
-// Systems
-#include "Systems/Systems.hpp"
+// Definitions
+#include "Game/Parsing.hpp"
 
-// Services
-#include "Services/WindowService.hpp"
-#include "Services/AssetStore.hpp"
-#include "Services/StopwatchService.hpp"
-
-// Entity-component systems' manager
-#include "ECS/ECS.hpp"
-
-// Alias for ECS to use
-using GameECS = ECS<
-    Physics,
-    Drawing
->::WithServices<
-    StopwatchService,
-    AssetStore,
-    WindowService
->;
-
-// Actions to take on said ECS's services
-
-/// @brief Handle the input on a given frame
-/// @param ecsManager ECS currently taking place
-/// @param stopwatch Physics timekeeping service
-void HandleInput(GameECS::ManagerService& ecsManager, 
-    StopwatchService& stopwatch) {
-    bool exitGame = false;
-
-    // Check for input events
-    for (SDL_Event currentEvent; 
-        SDL_PollEvent(&currentEvent) == 1;) {
-        switch (currentEvent.type)
-        {
-            // If exiting, stop the ECS
-            case SDL_QUIT:
-                exitGame = true;
-                break;
-
-            // Check if a key was pressed (indirectly by its release)
-            case SDL_KEYUP:
-                switch (currentEvent.key.keysym.sym)
-                {
-                    // If P is released, toggle the simulation delta
-                    case SDLK_p:
-                        stopwatch.Toggle();
-                        break;
-
-                    // If ESC is released, stop the ECS
-                    case SDLK_ESCAPE:
-                        exitGame = true;
-                        break;
-                
-                    default:
-                        break;
-                }
-                break;
-
-            default:
-                break;
-        }
-    }
-
-    // Request the ECS manager to stop running 
-    // the systems and services
-    if (exitGame) {
-        ecsManager.RequestStop();
-    }
-}
-
-/// @brief Render the entities drawn on the current frame 
-/// @param window Window service to draw entities from
-void DrawEntities(WindowService& window) {
-    // If the last frame was a draw frame, commit the drawings
-    if (window.OnDrawFrame()) {
-        window.Commit();
-    }
-
-    // Attempt to acquire the next drawing frame
-    window.AcquireDrawFrame();
-}
-
-/// @brief Reset the physics timer after a fixed
-/// timestep
-/// @param stopwatch 
-void ResetDeltaTimer(StopwatchService& stopwatch) {
-    // Reset the physics timer after 1000 ticks
-    if (stopwatch.Milliseconds() >= 1000) {
-        stopwatch.Reset();
-    }
-}
-
-// Parse services
-
-/// @brief Construct a window service given some input config
-/// @param input Input stream containing space-delimited parameters
-/// @return Constructed window
 WindowService ParseWindow(std::istream& input) {
     // Collect parameters
     int w, h, r, g, b;
@@ -174,13 +75,10 @@ WindowService ParseWindow(std::istream& input) {
                 (unsigned char) g, 
                 (unsigned char) b
             },
-            "Game Window!"
+            "RAM Gobbler (TM)"
     ));
 }
 
-/// @brief Load a font asset given some parameters
-/// @param assetStore Asset store to load font into
-/// @param input Input stream containing space-delimited parameters
 void ParseFont(AssetStore& assetStore, std::istream& input) {
     // Collect parameters
     int r, g, b, s;
@@ -255,12 +153,6 @@ void ParseFont(AssetStore& assetStore, std::istream& input) {
     );
 }
 
-/// @brief Load an entity given some parameters
-/// @param window Window to draw entities with
-/// @param assets Assets to draw entites with
-/// @param assets ECS to place entities into
-/// @param input Input stream containing space-delimited parameters
-/// @return True if loaded succesfully, false otherwise
 bool ParseEntity(WindowService& window, AssetStore& assets,
     GameECS& ecs, std::istream& input) {
     // Collect parameters
@@ -392,28 +284,20 @@ bool ParseEntity(WindowService& window, AssetStore& assets,
     return true;
 }
 
-// File parsing
-
-/// @brief Attempt to parse and utilize the configuration 
-/// provided to build entities and assets in the game 
-/// @param configPath Path to the configuration file
-/// @param assets Asset store used to load texture
-/// @param ecs ECS used to add entites
-/// @return Window used to render textures
 WindowService ParseConfig(
-    const std::filesystem::path& configPath,
+    const char* configPath,
     AssetStore& assets, 
     GameECS& ecs
 ) {
     // Sanity check the path
-    if (!configPath.has_filename()) {
+    if (!std::filesystem::path(configPath).has_filename()) {
         throw std::invalid_argument(
             "Invalid configuration path (not a file)"
         );
     }
 
     // Attempt to load config file from it
-    std::ifstream config(configPath.c_str());
+    std::ifstream config(configPath);
 
     if (!config.is_open()) {
         throw std::runtime_error("Unable to open config file");
@@ -493,112 +377,4 @@ WindowService ParseConfig(
 
     // All is done
     return std::move(window);
-}
-
-void RunGame(const char* configFilepath) {
-    // Create ECS
-    std::cout << "Initializing ECS..." << std::endl;
-    GameECS ecs;
-
-    // Create outside services
-    std::cout << "Initializing services..." << std::endl;
-
-    // Asset store
-    AssetStore assetStore;
-    if (assetStore.LoadFont("./assets/fonts/highway_gothic.ttf", 
-        10, SDL_Color{255, 255, 255, 255}) == nullptr) {
-        return;
-    };
-
-    // Window (also adds entities)
-    std::cout << "Loading config, window & entities..." << std::endl;
-    WindowService windowService = std::move(
-        ParseConfig(configFilepath, assetStore, ecs)
-    );
-
-    // Add systems
-    std::cout << "Adding systems..." << std::endl;
-    ecs.AddSystem(PhysicsSystem);
-    ecs.AddSystem(DrawingSystem);
-
-    // Install services
-    std::cout << "Installing services..." << std::endl;
-    ecs.InstallService(std::move(assetStore));
-    ecs.InstallService(std::move(windowService));
-    ecs.InstallService(StopwatchService());
-
-    // Add actions
-    std::cout << "Adding service actions..." << std::endl;
-    ecs.AddServiceAction(HandleInput);
-    ecs.AddServiceAction(DrawEntities);
-    ecs.AddServiceAction(ResetDeltaTimer);
-
-    // Starting running the ECS thread
-    std::cout << "Starting ECS..." << std::endl;
-    // ecs.Dispatch(); -> Multithreading and SDL might not work together
-    ecs.Run();
-
-    // Wait for it to stop
-    // ecs.AwaitStop(); -> See comment above
-    std::cout << "Quitting ECS..." << std::endl;
-}
-
-int main(int argc, char* args[]) {
-    // Make note of the usage when not provided
-    // the proper amount of args
-    if (argc != 2) {
-        std::cout 
-            << "Usage: " << std::endl 
-            << args[0] << " <config filename path>" << std::endl;
-
-        return -2;
-    }
-
-    if (
-        !std::filesystem::exists(args[1]) ||
-        !std::filesystem::path(args[1]).has_filename()
-    ) {
-        std::cerr 
-            << "Invalid path for configuration file: "
-            << "\"" << args[1] << "\""
-            << std::endl;
-
-        return -1;
-    }
-
-    // Initialize SDL
-    std::cout << "Initializing SDL..." << std::endl;
-    if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
-        SDL_Log("SDL_Init error: %s\n", SDL_GetError());
-        return -1;
-    }
-
-    // Initialize SDL's TTF
-    std::cout << "Initializing SDL TTF..." << std::endl;
-    if (TTF_Init() != 0) {
-        SDL_Log("TTF_Init error: %s\n", SDL_GetError());
-        return -1;
-    }
-
-    // Run game until exited or an error occurs
-    std::cout << "Bootstrapping game..." << std::endl;
-    try {
-        RunGame(args[1]);
-    } catch(const std::exception& e) {
-        std::cerr 
-            << "An error ocurred while running the game: "
-            << "\"" << e.what() << "\""
-            << std::endl;
-    }
-
-    // Cleanup SDL's TTF
-    std::cout << "Cleaning up SDL TTF..." << std::endl;
-    TTF_Quit();
-
-    // Cleanup SDL
-    std::cout << "Cleaning up SDL..." << std::endl;
-    SDL_Quit();
-
-    // All is done
-    return 0;
 }

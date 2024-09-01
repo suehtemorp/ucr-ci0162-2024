@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.25)
 
 # Define executable target
-add_executable(game main.cpp)
+add_executable(game Game/main.cpp)
 
 # ==== Add headers ====
 target_include_directories(game PUBLIC ./)
@@ -12,6 +12,8 @@ target_include_directories(game PUBLIC ./)
 add_subdirectory(./Services)
 # Systems
 add_subdirectory(./Systems)
+# Game-specific code
+add_subdirectory(./Game)
 
 # ==== Link dependencies ====
 # [[[ SDL2 ]]]
