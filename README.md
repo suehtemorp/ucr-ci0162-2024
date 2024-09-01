@@ -134,7 +134,7 @@ Las configuraciones a proveer se mencionan a continuación:
 |Configuración|Significado|
 |---|---|
 |`Debug`|Optar por facilidades y símbolos de depuración|
-|`Release`|Optar por velocidad y desmpeño de aplicación|
+|`Release`|Optar por velocidad y desempeño de aplicación|
 
 Los objetivos de construccion también se detallan a continuación:
 |Objetivo|Significado|
