@@ -7,6 +7,12 @@ add_executable(game main.cpp)
 # ==== Add headers ====
 target_include_directories(game PUBLIC ./)
 
+# ==== Add sources ====
+# Services
+add_subdirectory(./Services)
+# Systems
+add_subdirectory(./Systems)
+
 # ==== Link dependencies ====
 # [[[ SDL2 ]]]
 # - Link the SDL2main component if it is required and found
@@ -25,6 +31,12 @@ else()
     # Shared library
     target_link_libraries(game PRIVATE SDL2::SDL2)
 endif()
+
+# [[SDL TTF]]]
+target_link_libraries(game PRIVATE SDL2_ttf)
+
+# [[SDL IMAGE]]
+target_link_libraries(game PRIVATE SDL2_image)
 
 # [[[ GLM ]]]
 # - Link to either the compiled or header-only version
