@@ -1,5 +1,4 @@
-#ifndef TEMPLATES_HPP
-#define TEMPLATES_HPP
+#pragma once
 
 #include <concepts>
 #include <type_traits>
@@ -36,5 +35,3 @@ struct are_distinct<FirstType, OtherTypes...> : std::conjunction<
 /// @tparam Types Parameter pack to check
 template<typename... Types>
 concept Distinct = are_distinct<Types...>::value;
-
-#endif
