@@ -85,11 +85,15 @@ cmake [-D<opcion>:<tipo>=<valor> \]... -S./ -B./build
 Las opciones (a especificar mediante la bandera -D) que este proyecto aporta mediante `CMake` son:
 |Opción|Tipo|Valor(es)|Significado|
 |---|---|---|---|
-|`SDL2_VENDORED`|`BOOL`|`TRUE`/`FALSE`|Construir SDL2 en vez de utilizar la instalación del sistema|
-|`SDL2_STATIC`|`BOOL`|`TRUE`/`FALSE`|Utilizar la versión estática de SDL2 en vez de la dinámica|
-|`GLM_VENDORED`|`BOOL`|`TRUE`/`FALSE`|Construir GLM en vez de utilizar la instalación del sistema|
-|`GLM_HEADER_ONLY`|`BOOL`|`TRUE`/`FALSE`|Utilizar la versión de encabezados de GLM en vez de la compilada|
-|`GLM_SHARED`|`BOOL`|`TRUE`/`FALSE`|Utilizar la versión dinámica de GLM en vez de la dinámica|
+|`SDL2_LOCAL`|`BOOL`|`TRUE`/`FALSE`|Construir `SDL2` en vez de utilizar la instalación del sistema|
+|`SDL2_STATIC`|`BOOL`|`TRUE`/`FALSE`|Utilizar la versión estática de `SDL2` en vez de la dinámica|
+|`GLM_LOCAL`|`BOOL`|`TRUE`/`FALSE`|Construir `GLM` en vez de utilizar la instalación del sistema|
+|`GLM_HEADER_ONLY`|`BOOL`|`TRUE`/`FALSE`|Utilizar la versión de encabezados de `GLM` en vez de la compilada|
+|`GLM_SHARED`|`BOOL`|`TRUE`/`FALSE`|Utilizar la versión dinámica de `GLM` en vez de la dinámica|
+|`SDL2_IMAGE_LOCAL`|`BOOL`|`TRUE`/`FALSE`|Construir `SDL_Image` en vez de utilizar la instalación del sistema|
+|`SDL2_IMAGE_SHARED`|`BOOL`|`TRUE`/`FALSE`|Utilizar la versión dinámica de `SDL_Image` en vez de la dinámica|
+|`SDL2_TTF_LOCAL`|`BOOL`|`TRUE`/`FALSE`|Construir `SDL_TTF` en vez de utilizar la instalación del sistema|
+|`SDL2_TTF_SHARED`|`BOOL`|`TRUE`/`FALSE`|Utilizar la versión dinámica de `SDL_TTF` en vez de la dinámica|
 |`CMAKE_EXPORT_COMPILE_COMMANDS`|`BOOL`|`TRUE`/`FALSE`|Generar un archivo `json` con los comandos utilizados por el generador|
 |`CMAKE_BUILD_TYPE`|`STRING`|`Debug`/`Release`|Construir una versión para depuración (`Debug`) u optimizada (`Release`)|
 
@@ -130,6 +134,7 @@ Las configuraciones a proveer se mencionan a continuación:
 |Configuración|Significado|
 |---|---|
 |`Debug`|Optar por facilidades y símbolos de depuración|
+|`Release`|Optar por velocidad y desmpeño de aplicación|
 
 Los objetivos de construccion también se detallan a continuación:
 |Objetivo|Significado|
