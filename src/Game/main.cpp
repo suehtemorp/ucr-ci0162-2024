@@ -29,10 +29,6 @@ void RunGame(const char* configFilepath) {
 
     // Asset store
     AssetStore assetStore;
-    if (assetStore.LoadFont("./assets/fonts/highway_gothic.ttf", 
-        10, SDL_Color{255, 255, 255, 255}) == nullptr) {
-        return;
-    };
 
     // Window (also adds entities)
     std::cout << "Loading config, window & entities..." << std::endl;
