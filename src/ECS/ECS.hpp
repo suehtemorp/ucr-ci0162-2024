@@ -443,7 +443,7 @@ class ECS {
                 void InstallComponent(EntityID targetID, SpecificComponent&& component) {
                     // Get a reference to the entities' slot 
                     std::optional<SpecificComponent>& slot = 
-                    AccessComponent<*SelectEntity(targetID)>();
+                    AccessComponent<SpecificComponent>(*SelectEntity(targetID));
 
                     // Sanity check the component is missing
                     if (slot) {
@@ -462,7 +462,7 @@ class ECS {
                 void UninstallComponent(EntityID targetID) {
                     // Get a reference to the entities' slot 
                     std::optional<SpecificComponent>& slot = 
-                    AccessComponent<*SelectEntity(targetID)>();
+                    AccessComponent<SpecificComponent>(*SelectEntity(targetID));
 
                     // Sanity check the component is present
                     if (!slot) {
