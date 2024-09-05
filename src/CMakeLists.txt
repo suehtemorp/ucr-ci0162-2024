@@ -53,6 +53,7 @@ set_target_properties(
     game 
     PROPERTIES
         CXX_STANDARD 20
+	    CXX_STANDARD_REQUIRED ON
         RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/game"
         OUTPUT_NAME "Game"
         SUFFIX ".exe"
